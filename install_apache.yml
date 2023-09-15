@@ -1,0 +1,46 @@
+# Verifica si Apache esta instalado, si no esta instalado lo instala y configura el firewall
+# Cesar Haro
+# 14 Septiembre 2023
+---
+- name: Verificar e instalar Apache en CentOS 7
+  hosts: all
+  become: true
+  tasks:
+    - name: Verificar si Apache esta instalado
+      command: "rpm -q httpd"
+      register: apache_installed
+      ignore_errors: yes  # Ignorar errores para manejar el caso donde Apache no esta instalado
+
+    - name: Instalar Apache si no esta instalado
+      yum:
+        name: httpd
+        state: present
+      when: apache_installed.rc != 0  # Ejecutar solo si Apache no esta instalado
+
+    - name: Iniciar y habilitar Apache
+      systemd:
+        name: httpd
+        state: started
+        enabled: yes
+      when: apache_installed.rc != 0  # Ejecutar solo si Apache no esta instalado
+
+    - name: Crea un index.html
+      ansible.builtin.copy:
+        dest: /var/www/html/index.html
+        content: |
+          <h1>Hola mundo</h1>
+      when: apache_installed.rc != 0
+
+    - name: Habilitar apache
+      ansible.builtin.service:
+        name: httpd
+        enabled: true
+        state: started
+      when: apache_installed.rc != 0
+
+    - name: Abrir puerto 80
+      ansible.posix.firewalld:
+        service: http
+        state: enabled
+        immediate: true
+        permanent: true
